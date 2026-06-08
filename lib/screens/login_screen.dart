@@ -1,4 +1,5 @@
 import 'package:auth_project/screens/forget_pass.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -329,6 +330,7 @@ class _RegisterState extends State<Register> {
   TextEditingController email = TextEditingController();
   TextEditingController password = TextEditingController();
   TextEditingController phoneno = TextEditingController();
+  
   signUp() async {
     try {
       UserCredential userCredential = await FirebaseAuth.instance
@@ -336,8 +338,24 @@ class _RegisterState extends State<Register> {
             email: email.text.trim(),
             password: password.text.trim(),
           );
+
+      print('Auth done — uid: ${userCredential.user!.uid}'); // ← add
+
       await userCredential.user!.updateDisplayName(name.text.trim());
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({
+            'uid': userCredential.user!.uid,
+            'fullName': name.text.trim(),
+            'email': email.text.trim(),
+            'phone': phoneno.text.trim(),
+          });
+
+      print('Firestore save done'); 
     } catch (e) {
+      print('Error in signUp: $e'); 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('something Wrong : $e')));
