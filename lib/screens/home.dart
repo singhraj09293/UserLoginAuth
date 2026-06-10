@@ -1,4 +1,5 @@
 import 'package:auth_project/models/login.dart';
+import 'package:auth_project/screens/user_list.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -23,19 +24,54 @@ class _HomeState extends State<Home> {
     });
   }
 
-  delteAcc(String password) async {
+  ddelteAcc(String password) async {
     final user = FirebaseAuth.instance.currentUser!;
     final uid = user.uid;
     try {
-      AuthCredential credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: password,
-      );
-      await user.reauthenticateWithCredential(credential);
+      String provider = user.providerData[0].providerId;
+      print('Provider: $provider');
+
+      if (provider == 'google.com') {
+        // Google reauth
+        print('Google reauth starting');
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          print('Google sign in cancelled');
+          return;
+        }
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+        print('Reauth done');
+      } else {
+        // Email reauth
+        AuthCredential credential = EmailAuthProvider.credential(
+          email: user.email!,
+          password: password,
+        );
+        await user.reauthenticateWithCredential(credential);
+        print('Email reauth done');
+      }
+
+      // Delete Firestore → same for both providers
       await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      print('Firestore deleted');
+
+      // Delete Auth account → same for both providers
       await user.delete();
+      print('Auth deleted');
+
+      // Sign out Google
+      await GoogleSignIn().signOut();
     } catch (e) {
-      Text('Error $e');
+      print('Error: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -76,7 +112,7 @@ class _HomeState extends State<Home> {
                     ),
                     TextButton(
                       onPressed: () {
-                        delteAcc(pass.text.trim());
+                        ddelteAcc(pass.text.trim());
                         Navigator.pop(context);
                       },
                       child: Text('Delete'),
@@ -95,7 +131,7 @@ class _HomeState extends State<Home> {
             .doc(FirebaseAuth.instance.currentUser!.uid)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasData) {
+          if (snapshot.hasData && snapshot.data!.exists) {
             Login user = Login.fromMap(
               snapshot.data!.data() as Map<String, dynamic>,
             );
@@ -146,11 +182,25 @@ class _HomeState extends State<Home> {
                     },
                     child: Icon(Icons.logout),
                   ),
+                  SizedBox(height: 100,),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      fixedSize: Size(280,55),
+                      backgroundColor: Colors.blueAccent
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => UserList()),
+                      );
+                    },
+                    child: Text('View All user',style: TextStyle(color: Colors.white),),
+                  ),
                 ],
               ),
             );
           }
-          return CircularProgressIndicator();
+          return Center(child: CircularProgressIndicator());
         },
       ),
     );
