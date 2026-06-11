@@ -351,6 +351,7 @@ class _RegisterState extends State<Register> {
             'fullName': name.text.trim(),
             'email': email.text.trim(),
             'phone': phoneno.text.trim(),
+            'createdAt':FieldValue.serverTimestamp(),
           });
 
       print('Firestore save done'); 

@@ -9,6 +9,7 @@ class UserList extends StatefulWidget {
 }
 
 class _UserListState extends State<UserList> {
+  bool _isDecending = true;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,13 +22,30 @@ class _UserListState extends State<UserList> {
             },
             icon: Icon(Icons.search),
           ),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _isDecending = !_isDecending;
+              });
+            },
+            icon: _isDecending
+                ? Icon(Icons.arrow_downward)
+                : Icon(Icons.arrow_upward),
+          ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .orderBy('createdAt', descending: _isDecending)
+            .snapshots(),
         builder: (context, snapshot) {
+          print('docs count: ${snapshot.data?.docs.length}');
           if (!snapshot.hasData) {
             return Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error ${snapshot.error}'));
           }
           return ListView.builder(
             itemCount: snapshot.data!.docs.length,
@@ -37,6 +55,15 @@ class _UserListState extends State<UserList> {
               return ListTile(
                 title: Text(data['fullName']),
                 subtitle: Text(data['email']),
+                trailing: Text(
+                  data['createdAt'] != null
+                      ? (data['createdAt'] as Timestamp)
+                            .toDate()
+                            .toString()
+                            .substring(0, 10)
+                      : 'No Date',
+                  style: TextStyle(fontSize: 15, color: Colors.grey),
+                ),
               );
             },
           );
