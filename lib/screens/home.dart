@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:auth_project/models/login.dart';
 import 'package:auth_project/screens/user_list.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -16,6 +18,19 @@ class _HomeState extends State<Home> {
   TextEditingController newName = TextEditingController();
   TextEditingController pass = TextEditingController();
   bool isPasswordVisible = false;
+  File? image;
+
+  pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    if (pickedFile != null) {
+      setState(() {
+        image = File(pickedFile.path);
+      });
+    }
+  }
 
   updateName() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -139,6 +154,19 @@ class _HomeState extends State<Home> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  GestureDetector(
+                     onTap: () => pickImage(),
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundImage: image != null
+                          ? FileImage(image!)
+                          : AssetImage('assets/default.jpeg') as ImageProvider,
+                      child: image == null
+                          ? Icon(Icons.camera_alt, size: 30)
+                          : null,
+                    ),
+                  ),
+                  SizedBox(height: 20,),
                   Text('Welcome ${user.fullName}'),
                   SizedBox(height: 20),
                   GestureDetector(
@@ -182,11 +210,11 @@ class _HomeState extends State<Home> {
                     },
                     child: Icon(Icons.logout),
                   ),
-                  SizedBox(height: 100,),
+                  SizedBox(height: 100),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      fixedSize: Size(280,55),
-                      backgroundColor: Colors.blueAccent
+                      fixedSize: Size(280, 55),
+                      backgroundColor: Colors.blueAccent,
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -194,7 +222,10 @@ class _HomeState extends State<Home> {
                         MaterialPageRoute(builder: (_) => UserList()),
                       );
                     },
-                    child: Text('View All user',style: TextStyle(color: Colors.white),),
+                    child: Text(
+                      'View All user',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
