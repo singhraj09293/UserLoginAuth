@@ -9,6 +9,7 @@ class Login {
   final String fullName;
   final String phone;
   final DateTime createdAt;
+  final String? photoUrl;
 
   Login({
     required this.uid,
@@ -16,6 +17,7 @@ class Login {
     required this.fullName,
     required this.phone,
     required this.createdAt,
+    this.photoUrl,
   });
 
   Login copyWith({
@@ -53,6 +55,7 @@ class Login {
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      photoUrl: map['photoUrl'],
     );
   }
 

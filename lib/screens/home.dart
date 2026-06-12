@@ -3,6 +3,7 @@ import 'package:auth_project/models/login.dart';
 import 'package:auth_project/screens/user_list.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +20,7 @@ class _HomeState extends State<Home> {
   TextEditingController pass = TextEditingController();
   bool isPasswordVisible = false;
   File? image;
+  bool loading = false;
 
   pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -28,6 +30,33 @@ class _HomeState extends State<Home> {
     if (pickedFile != null) {
       setState(() {
         image = File(pickedFile.path);
+      });
+    }
+  }
+
+  uploadImage() async {
+    try {
+      setState(() {
+        loading = true;
+      });
+      if (image == null) return;
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profiles')
+          .child('$uid.jpeg');
+      await ref.putFile(image!);
+      String url = await ref.getDownloadURL();
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'photoUrl': url,
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('error $e')));
+    } finally {
+      setState(() {
+        loading = false;
       });
     }
   }
@@ -150,86 +179,101 @@ class _HomeState extends State<Home> {
             Login user = Login.fromMap(
               snapshot.data!.data() as Map<String, dynamic>,
             );
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                     onTap: () => pickImage(),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundImage: image != null
-                          ? FileImage(image!)
-                          : AssetImage('assets/default.jpeg') as ImageProvider,
-                      child: image == null
-                          ? Icon(Icons.camera_alt, size: 30)
-                          : null,
-                    ),
-                  ),
-                  SizedBox(height: 20,),
-                  Text('Welcome ${user.fullName}'),
-                  SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: Text('Change the name you want'),
-                          content: TextField(
-                            controller: newName,
-                            decoration: InputDecoration(hintText: 'Enter Name'),
+            return loading
+                ? CircularProgressIndicator()
+                : Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () => pickImage(),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundImage: user.photoUrl != null
+                                ? NetworkImage(user.photoUrl!)
+                                : image != null
+                                ? FileImage(image!) as ImageProvider
+                                : AssetImage('assets/default.jpeg')
+                                      as ImageProvider,
+                            child: image == null && user.photoUrl == null
+                                ? Icon(Icons.camera_alt, size: 30)
+                                : null,
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              child: Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                updateName();
-                                Navigator.pop(context);
-                              },
-                              child: Text('Change'),
-                            ),
-                          ],
                         ),
-                      );
-                    },
-                    child: Text(
-                      'Change Name?',
-                      style: TextStyle(color: Colors.blueAccent),
+                        SizedBox(height: 20),
+                        Text('Welcome ${user.fullName}'),
+                        SizedBox(height: 20),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: Text('Change the name you want'),
+                                content: TextField(
+                                  controller: newName,
+                                  decoration: InputDecoration(
+                                    hintText: 'Enter Name',
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                    },
+                                    child: Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      updateName();
+                                      Navigator.pop(context);
+                                    },
+                                    child: Text('Change'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Change Name?',
+                            style: TextStyle(color: Colors.blueAccent),
+                          ),
+                        ),
+                        SizedBox(height: 50),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await FirebaseAuth.instance.signOut();
+                            await GoogleSignIn().signOut();
+                          },
+                          child: Icon(Icons.logout),
+
+                        ),
+                        SizedBox(height: 20,),
+                        ElevatedButton(
+                          onPressed: () async {
+                            uploadImage();
+                          },
+                          child: Icon(Icons.upload),
+                        ),
+                        SizedBox(height: 100),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            fixedSize: Size(280, 55),
+                            backgroundColor: Colors.blueAccent,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => UserList()),
+                            );
+                          },
+                          child: Text(
+                            'View All user',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  SizedBox(height: 50),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await FirebaseAuth.instance.signOut();
-                      await GoogleSignIn().signOut();
-                    },
-                    child: Icon(Icons.logout),
-                  ),
-                  SizedBox(height: 100),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      fixedSize: Size(280, 55),
-                      backgroundColor: Colors.blueAccent,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => UserList()),
-                      );
-                    },
-                    child: Text(
-                      'View All user',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            );
+                  );
           }
           return Center(child: CircularProgressIndicator());
         },
